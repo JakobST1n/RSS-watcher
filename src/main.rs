@@ -126,11 +126,8 @@ async fn get_feed(feed_conf: &FeedConf) -> bool {
     // time as that. Which means that no articles will be found.
     let last_fetch_time;
     match &feed_conf.last_fetch {
-        Some(x) => {
-            last_fetch_time = DateTime::from_utc(
-                NaiveDateTime::from_timestamp(x.to_owned(),0), Utc);
-            error!("{:#?}", last_fetch_time);
-        },
+        Some(x) => last_fetch_time = DateTime::from_utc(
+                       NaiveDateTime::from_timestamp(x.to_owned(),0), Utc),
         None => last_fetch_time = Utc::now(),
     }
 
