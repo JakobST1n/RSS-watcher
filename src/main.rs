@@ -107,7 +107,6 @@ async fn fetch_feed(feed_conf: &FeedConf, last_fetch_time: DateTime<Utc>) -> Res
                      .header("If-Modified-Since", &last_fetch_rfc2822)
                      .send()
                      .await?;
-    println!("{:#?}", resp);
     if resp.status() == 304 {
         info!("No changes since last fetch {}", &last_fetch_rfc2822);
         Ok(None)
