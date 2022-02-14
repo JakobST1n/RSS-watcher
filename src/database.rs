@@ -95,6 +95,49 @@ fn table_create(conn: &mut Conn) {
 }
 
 /**
+ * Select the row in the table describing the database version.
+ */
+fn get_db_version(conn: &mut Conn) -> i64 {
+    let q = "SELECT `last_fetch` from `rss-watcher-feeds` WHERE `id`=0 AND `url` LIKE 'version'";
+    let res: Result<Option<i64>> = conn.query_first(q);
+    if let Err(x) = res {
+        error!("Could not get current version from database ({:#?})...", x);
+        process::exit(1);
+    }
+    let res_res = res.unwrap();
+    if let None = res_res {
+        error!("Row with id=0 and url='version' does not exist, something is wrong!");
+        error!("Please fix your database manually!");
+        process::exit(1);
+    }
+    return res_res.unwrap();
+}
+
+/**
+ * Run migrations v2.
+ */
+fn run_migrations_v2(tx: &mut Transaction, version: i64) {
+    if version < 2 {
+        warn!("Running migrations to v2");
+        let mut q;
+        q = "ALTER TABLE `rss_watcher`.`rss-watcher-feeds` \
+             CHANGE COLUMN `title` `title` VARCHAR(255) NOT NULL DEFAULT '{{title}}: {{entry.title}}' , \
+             CHANGE COLUMN `message` `message` VARCHAR(255) NOT NULL DEFAULT '{{entry.summary}}';";
+
+        if let Err(x) = tx.query_drop(q) {
+            error!("Could not run database migration to v2...! ({:#?}", x);
+            process::exit(1);
+        }
+
+        q = "UPDATE `rss-watcher-feeds` SET `last_fetch`=2 WHERE `id`=0";
+        if let Err(x) = tx.query_drop(q) {
+            error!("Could not run database migration to v2...! ({:#?}", x);
+            process::exit(1);
+        }
+    }
+}
+
+/**
  * Bootstrap the database, this will make sure tables exists,
  * create them if not and run migrations if nececarry.
  */
@@ -110,6 +153,24 @@ pub fn bootstrap() {
     
     if !table_exists(&mut conn) {
         table_create(&mut conn);
+    }
+
+    let version = get_db_version(&mut conn);
+    if version < 2 {
+        let res_tx = conn.start_transaction(TxOpts::default());
+        if let Err(x) = res_tx {
+            error!("Could not create transaction for updating last fetch time! {:#?}", x);
+            return;
+        }
+        let mut tx = res_tx.unwrap();
+
+        run_migrations_v2(&mut tx, version);
+
+        if let Err(x) = tx.commit() {
+            warn!("Could not commit update! ({:#?}", x);
+        }
+    } else {
+        info!("Database is up to date, no migrations to run.");
     }
 
     info!("Database should now be bootstrapped");
