@@ -129,7 +129,7 @@ pub fn get_feeds(conn: &mut Conn) -> Vec<FeedConf> {
                     `push_url`, \
                     `push_token` \
                FROM `rss-watcher-feeds` \
-              WHERE id > 1";
+              WHERE id > 0";
     let res = conn.query_map(q,
                |(id,url,last_fetch,title,message,push_url,push_token)| {
                  FeedConf{id,url,last_fetch,title,message,push_url,push_token}
