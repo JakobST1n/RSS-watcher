@@ -41,12 +41,16 @@ fn replace_tags(input: String, entry: &Entry) -> String {
 }
 
 /**
- * Method that escapes some characters that would break json spec
+ * Method that escapes some characters that would break json spec, and also escape
+ * special HTML characters.
  */
 fn escape(input: String) -> String {
     return input.replace("\\","\\\\")
                 .replace("\"", "\\\"")
-                .replace("\n", "\\n");
+                .replace("\n", "\\n")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("&", "$amp;");
 }
 
 /**
