@@ -117,6 +117,7 @@ async fn fetch_feed(feed_conf: &FeedConf, last_fetch_time: DateTime<Utc>) -> Res
         Ok(None)
     } else {
         let feed = parser::parse(&resp.bytes().await?[..])?;
+        debug!("{:#?}", feed);
         Ok(Some(feed))
     }
 }
@@ -177,9 +178,26 @@ async fn get_feed(feed_conf: &FeedConf) -> bool {
  * This gets all feeds from the database and fetches them once.
  */
 async fn main_loop() {
-    let mut conn = database::new_conn();
-    info!("== Checking for new feed entries now")
-    for feed in database::get_feeds(&mut conn) {
+    info!("========== Checking for new feed entries now");
+
+    let res_conn = database::new_conn();
+    if let None = res_conn {
+        error!("Could not open database connection, waiting until next iteration before trying again!");
+        return;
+    };
+    let mut conn = res_conn.unwrap();
+
+    let res_feeds = database::get_feeds(&mut conn);
+    
+    if let None = res_feeds {
+        error!("Could not get feeds, waiting until next iteration before trying again!");
+        return;
+    }
+
+    let feeds = res_feeds.unwrap();
+    info!("           Got {} feeds to check", feeds.len());
+
+    for feed in feeds {
         let time_now = Utc::now();
         let res = get_feed(&feed).await;
         if res {

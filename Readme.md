@@ -6,7 +6,8 @@ and pushes those to Gotify.
 This can be run using docker or locally, to run with docker you can
 ```
 $ run -it --rm -e DB_HOST=<database host> -e DB_USER=<database user> \
-         -e DB_PASS=<database password> -e DB_BASE=<database name> jakobst1n/rss-watcher
+      -e DB_PASS=<database password> -e DB_BASE=<database name> \
+      --restart=unless-stopped jakobst1n/rss-watcher
 ```
 To run locally you need to set all those environment variables, and then
 you can run it with
@@ -32,5 +33,3 @@ will poll for new changes (in ms).
 ## Todo
 - Extract more RSS fields.
 - Deal with multiple links.
-- Add error handling for database connection, currently the process exits (which is why you might want to use `--restart=unless-stopped`
-- Add proper error handling for gotify failures

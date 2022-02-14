@@ -1,6 +1,6 @@
 use std::process;
 use std::env;
-use log::{info, warn, error};
+use log::{debug, info, warn, error};
 use mysql::*;
 use mysql::prelude::*;
 
@@ -30,13 +30,13 @@ fn build_opts() -> Opts {
             .db_name(Some(db_base)));
 }
 
-pub fn new_conn() -> Conn {
+pub fn new_conn() -> Option<Conn> {
     let conn_res = Conn::new(build_opts());
     if let Err(ref x) = conn_res {
         error!("Could not connect to database ({:#?})...", x);
-        process::exit(1);
+        return None;
     }
-    return conn_res.unwrap();
+    return Some(conn_res.unwrap());
 }
 
 /**
@@ -120,7 +120,7 @@ pub fn bootstrap() {
 /**
  * This will fetch all feeds from the database and return them as a Vector.
  */
-pub fn get_feeds(conn: &mut Conn) -> Vec<FeedConf> {
+pub fn get_feeds(conn: &mut Conn) -> Option<Vec<FeedConf>> {
     let q = "SELECT `id`, \
                     `url`, \
                     `last_fetch`, \
@@ -133,15 +133,28 @@ pub fn get_feeds(conn: &mut Conn) -> Vec<FeedConf> {
     let res = conn.query_map(q,
                |(id,url,last_fetch,title,message,push_url,push_token)| {
                  FeedConf{id,url,last_fetch,title,message,push_url,push_token}
-               },).unwrap();
-    return res;
+               },);
+    debug!("{:#?}", res);
+    match res {
+        Ok(r) => return Some(r),
+        Err(e) => {
+            error!("Could not get feeds from database ({:?})", e);
+            return None;
+        }
+    }
 }
 
 /**
  * Method that updates the last fetch time timestamp in the database
  */
 pub fn update_last_fetch(feed_id: u32, last_fetch: i64, conn: &mut Conn) {
-    let mut tx = conn.start_transaction(TxOpts::default()).unwrap();
+    let res_tx = conn.start_transaction(TxOpts::default());
+    if let Err(x) = res_tx {
+        error!("Could not create transaction for updating last fetch time! {:#?}", x);
+        return;
+    }
+    let mut tx = res_tx.unwrap();
+
     let q = "UPDATE `rss-watcher-feeds` SET last_fetch=?  WHERE id=?";
     if let Err(x) = tx.exec_drop(q, (last_fetch,feed_id,)) {
         warn!("Could not update last fetch time...! ({:#?}", x);
