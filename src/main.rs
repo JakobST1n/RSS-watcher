@@ -11,7 +11,7 @@ use feed_rs::model::Text;
 use chrono::prelude::{Utc,DateTime,NaiveDateTime};
 use std::time::Duration;
 use tokio::{time};
-use log::{info, warn, error};
+use log::{debug, info, warn, error};
 use html2md;
 extern crate mime;
 
@@ -107,12 +107,13 @@ async fn fetch_feed(feed_conf: &FeedConf, last_fetch_time: DateTime<Utc>) -> Res
     info!("Fetching feed \"{}\"", &feed_conf.url);
     let client = reqwest::Client::new();
     let last_fetch_rfc2822 = last_fetch_time.to_rfc2822().replace("+0000", "GMT");
+    debug!("Using header \"If-Modified-Since {:?}\"", &last_fetch_rfc2822);
     let resp = client.get(&feed_conf.url)
                      .header("If-Modified-Since", &last_fetch_rfc2822)
                      .send()
                      .await?;
     if resp.status() == 304 {
-        info!("No changes since last fetch {}", &last_fetch_rfc2822);
+        info!("No changes since last fetch at {}", &last_fetch_rfc2822);
         Ok(None)
     } else {
         let feed = parser::parse(&resp.bytes().await?[..])?;
@@ -134,6 +135,7 @@ async fn get_feed(feed_conf: &FeedConf) -> bool {
                        NaiveDateTime::from_timestamp(x.to_owned(),0), Utc),
         None => last_fetch_time = Utc::now(),
     }
+    debug!("Using last_fetch_time {:?}", last_fetch_time.to_owned());
 
     // Fetch the feed and parse it
     let res = fetch_feed(&feed_conf, last_fetch_time).await;
@@ -176,6 +178,7 @@ async fn get_feed(feed_conf: &FeedConf) -> bool {
  */
 async fn main_loop() {
     let mut conn = database::new_conn();
+    info!("== Checking for new feed entries now")
     for feed in database::get_feeds(&mut conn) {
         let time_now = Utc::now();
         let res = get_feed(&feed).await;
