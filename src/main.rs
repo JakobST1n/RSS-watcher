@@ -23,7 +23,7 @@ async fn get_feed(feed_conf: &FeedConf) -> bool {
     let last_fetch_time;
     match &feed_conf.last_fetch {
         Some(x) => last_fetch_time = DateTime::from_utc(
-                       NaiveDateTime::from_timestamp(x.to_owned(),0), Utc),
+                       NaiveDateTime::from_timestamp_opt(x.to_owned(),0).unwrap(), Utc),
         None => last_fetch_time = Utc::now(),
     }
     debug!("Using last_fetch_time {:?}", last_fetch_time.to_owned());
