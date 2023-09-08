@@ -120,7 +120,7 @@ fn run_migrations_v2(tx: &mut Transaction, version: i64) {
     if version < 2 {
         warn!("Running migrations to v2");
         let mut q;
-        q = "ALTER TABLE `rss_watcher`.`rss-watcher-feeds` \
+        q = "ALTER TABLE `rss-watcher-feeds` \
              CHANGE COLUMN `title` `title` VARCHAR(255) NOT NULL DEFAULT '{{title}}: {{entry.title}}' , \
              CHANGE COLUMN `message` `message` VARCHAR(255) NOT NULL DEFAULT '{{entry.summary}}';";
 
