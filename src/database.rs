@@ -98,7 +98,7 @@ fn table_create(conn: &mut Conn) {
  * Select the row in the table describing the database version.
  */
 fn get_db_version(conn: &mut Conn) -> i64 {
-    let q = "SELECT `last_fetch` from `rss-watcher-feeds` WHERE `id`=0 AND `url` LIKE 'version'";
+    let q = "SELECT `last_fetch` from `rss-watcher-feeds` WHERE (`id`=0 OR `id`=1) AND `url` LIKE 'version'";
     let res: Result<Option<i64>> = conn.query_first(q);
     if let Err(x) = res {
         error!("Could not get current version from database ({:#?})...", x);
@@ -106,7 +106,7 @@ fn get_db_version(conn: &mut Conn) -> i64 {
     }
     let res_res = res.unwrap();
     if let None = res_res {
-        error!("Row with id=0 and url='version' does not exist, something is wrong!");
+        error!("Row with (id=0 or id=1) and url='version' does not exist, something is wrong!");
         error!("Please fix your database manually!");
         process::exit(1);
     }
@@ -120,7 +120,7 @@ fn run_migrations_v2(tx: &mut Transaction, version: i64) {
     if version < 2 {
         warn!("Running migrations to v2");
         let mut q;
-        q = "ALTER TABLE `rss_watcher`.`rss-watcher-feeds` \
+        q = "ALTER TABLE `rss-watcher-feeds` \
              CHANGE COLUMN `title` `title` VARCHAR(255) NOT NULL DEFAULT '{{title}}: {{entry.title}}' , \
              CHANGE COLUMN `message` `message` VARCHAR(255) NOT NULL DEFAULT '{{entry.summary}}';";
 
@@ -129,7 +129,7 @@ fn run_migrations_v2(tx: &mut Transaction, version: i64) {
             process::exit(1);
         }
 
-        q = "UPDATE `rss-watcher-feeds` SET `last_fetch`=2 WHERE `id`=0";
+        q = "UPDATE `rss-watcher-feeds` SET `last_fetch`=2 WHERE (`id`=0 OR `id`=1) AND `url` LIKE 'version' ";
         if let Err(x) = tx.query_drop(q) {
             error!("Could not run database migration to v2...! ({:#?}", x);
             process::exit(1);
@@ -190,7 +190,7 @@ pub fn get_feeds(conn: &mut Conn) -> Option<Vec<FeedConf>> {
                     `push_url`, \
                     `push_token` \
                FROM `rss-watcher-feeds` \
-              WHERE id > 0";
+              WHERE `url` NOT LIKE 'version'";
     let res = conn.query_map(q,
                |(id,url,last_fetch,title,message,push_url,push_token)| {
                  FeedConf{id,url,last_fetch,title,message,push_url,push_token}
