@@ -75,6 +75,10 @@ fn table_create(conn: &mut Conn) {
         error!("Could not create table! ({:#?}", x);
         process::exit(1);
     }
+    if let Err(x) = tx.query_drop("SET SESSION sql_mode='NO_AUTO_VALUE_ON_ZERO'") {
+        error!("Could not set NO_AUTO_VALUE_ON_ZERO sql_mode for session, you might have to change the id of this row manually from 1 to 0! ({:#?}", x);
+        process::exit(1);
+    }
     q = "INSERT INTO `rss-watcher-feeds` (id,
                                           url,
                                           last_fetch,
