@@ -1,8 +1,8 @@
-use std::process;
-use std::env;
-use log::{debug, info, warn, error};
-use mysql::*;
+use log::{debug, error, info, warn};
 use mysql::prelude::*;
+use mysql::*;
+use std::env;
+use std::process;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct FeedConf {
@@ -12,7 +12,7 @@ pub struct FeedConf {
     pub title: String,
     pub message: String,
     pub push_url: String,
-    pub push_token: String
+    pub push_token: String,
 }
 
 /**
@@ -23,11 +23,13 @@ fn build_opts() -> Opts {
     let db_base = env::var("DB_BASE").expect("$DB_BASE is not set");
     let db_user = env::var("DB_USER").expect("$DB_USER is not set");
     let db_pass = env::var("DB_PASS").expect("$DB_PASS is not set");
-    return Opts::from(OptsBuilder::new()
+    return Opts::from(
+        OptsBuilder::new()
             .ip_or_hostname(Some(db_host))
             .user(Some(db_user))
             .pass(Some(db_pass))
-            .db_name(Some(db_base)));
+            .db_name(Some(db_base)),
+    );
 }
 
 pub fn new_conn() -> Option<Conn> {
@@ -44,13 +46,18 @@ pub fn new_conn() -> Option<Conn> {
  */
 fn table_exists(conn: &mut Conn) -> bool {
     let db_base = env::var("DB_BASE").expect("$DB_BASE is not set");
-    let q = conn.prep("SELECT table_name \
+    let q = conn
+        .prep(
+            "SELECT table_name \
                          FROM INFORMATION_SCHEMA.TABLES \
                         WHERE TABLE_SCHEMA=:schema \
-                              AND TABLE_NAME='rss-watcher-feeds'").unwrap();
-    let res: Option<String> = conn.exec_first(
-        &q, params! {"schema" => db_base}).unwrap();
-    if let None = res { return false; }
+                              AND TABLE_NAME='rss-watcher-feeds'",
+        )
+        .unwrap();
+    let res: Option<String> = conn.exec_first(&q, params! {"schema" => db_base}).unwrap();
+    if let None = res {
+        return false;
+    }
     return true;
 }
 
@@ -91,7 +98,6 @@ fn table_create(conn: &mut Conn) {
         error!("Could not create table! ({:#?}", x);
         process::exit(1);
     }
-
 }
 
 /**
@@ -150,7 +156,7 @@ pub fn bootstrap() {
     }
     let mut conn = conn_res.unwrap();
     info!("Connected to database");
-    
+
     if !table_exists(&mut conn) {
         table_create(&mut conn);
     }
@@ -159,7 +165,10 @@ pub fn bootstrap() {
     if version < 2 {
         let res_tx = conn.start_transaction(TxOpts::default());
         if let Err(x) = res_tx {
-            error!("Could not create transaction for updating last fetch time! {:#?}", x);
+            error!(
+                "Could not create transaction for updating last fetch time! {:#?}",
+                x
+            );
             return;
         }
         let mut tx = res_tx.unwrap();
@@ -191,10 +200,18 @@ pub fn get_feeds(conn: &mut Conn) -> Option<Vec<FeedConf>> {
                     `push_token` \
                FROM `rss-watcher-feeds` \
               WHERE `url` NOT LIKE 'version'";
-    let res = conn.query_map(q,
-               |(id,url,last_fetch,title,message,push_url,push_token)| {
-                 FeedConf{id,url,last_fetch,title,message,push_url,push_token}
-               },);
+    let res = conn.query_map(
+        q,
+        |(id, url, last_fetch, title, message, push_url, push_token)| FeedConf {
+            id,
+            url,
+            last_fetch,
+            title,
+            message,
+            push_url,
+            push_token,
+        },
+    );
     debug!("{:#?}", res);
     match res {
         Ok(r) => return Some(r),
@@ -211,17 +228,19 @@ pub fn get_feeds(conn: &mut Conn) -> Option<Vec<FeedConf>> {
 pub fn update_last_fetch(feed_id: u32, last_fetch: i64, conn: &mut Conn) {
     let res_tx = conn.start_transaction(TxOpts::default());
     if let Err(x) = res_tx {
-        error!("Could not create transaction for updating last fetch time! {:#?}", x);
+        error!(
+            "Could not create transaction for updating last fetch time! {:#?}",
+            x
+        );
         return;
     }
     let mut tx = res_tx.unwrap();
 
     let q = "UPDATE `rss-watcher-feeds` SET last_fetch=?  WHERE id=?";
-    if let Err(x) = tx.exec_drop(q, (last_fetch,feed_id,)) {
+    if let Err(x) = tx.exec_drop(q, (last_fetch, feed_id)) {
         warn!("Could not update last fetch time...! ({:#?}", x);
     }
     if let Err(x) = tx.commit() {
         warn!("Could not commit update! ({:#?}", x);
     }
-
 }
