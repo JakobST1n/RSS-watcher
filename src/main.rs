@@ -1,16 +1,16 @@
-mod rss_utils;
-mod notify;
 mod database;
+mod notify;
+mod rss_utils;
 use database::FeedConf;
 
+use log::{debug, error, info, warn};
 use std::env;
 use std::process;
-use log::{debug, info, warn, error};
 
-use chrono::prelude::{Utc,DateTime,NaiveDateTime};
-use tokio::{time};
-use std::time::Duration;
+use chrono::prelude::{DateTime, NaiveDateTime, Utc};
 use feed_rs::model::Feed;
+use std::time::Duration;
+use tokio::time;
 
 /**
  * This calls fetch_feed, and figures out wether it succeeded or not.
@@ -22,8 +22,12 @@ async fn get_feed(feed_conf: &FeedConf) -> bool {
     // time as that. Which means that no articles will be found.
     let last_fetch_time;
     match &feed_conf.last_fetch {
-        Some(x) => last_fetch_time = DateTime::from_utc(
-                       NaiveDateTime::from_timestamp_opt(x.to_owned(),0).unwrap(), Utc),
+        Some(x) => {
+            last_fetch_time = DateTime::from_utc(
+                NaiveDateTime::from_timestamp_opt(x.to_owned(), 0).unwrap(),
+                Utc,
+            )
+        }
         None => last_fetch_time = Utc::now(),
     }
     debug!("Using last_fetch_time {:?}", last_fetch_time.to_owned());
@@ -32,16 +36,18 @@ async fn get_feed(feed_conf: &FeedConf) -> bool {
     let res = rss_utils::fetch_feed(&feed_conf, last_fetch_time).await;
     let feed_res: Option<Feed>;
     match res {
-        Err(e) =>  {
+        Err(e) => {
             error!("Could not fetch feed ({:?})", e);
             return false;
-        },
-        Ok(x) => feed_res = x
+        }
+        Ok(x) => feed_res = x,
     }
 
-    // If feed is empty (we got status code 304), we should skip any further 
+    // If feed is empty (we got status code 304), we should skip any further
     // processing
-    if let None = feed_res { return false; }
+    if let None = feed_res {
+        return false;
+    }
     let feed = feed_res.unwrap();
 
     // Process all entries in the feed
@@ -57,13 +63,15 @@ async fn main_loop() {
 
     let res_conn = database::new_conn();
     if let None = res_conn {
-        error!("Could not open database connection, waiting until next iteration before trying again!");
+        error!(
+            "Could not open database connection, waiting until next iteration before trying again!"
+        );
         return;
     };
     let mut conn = res_conn.unwrap();
 
     let res_feeds = database::get_feeds(&mut conn);
-    
+
     if let None = res_feeds {
         error!("Could not get feeds, waiting until next iteration before trying again!");
         return;
@@ -80,7 +88,7 @@ async fn main_loop() {
     }
 }
 
-/** 
+/**
  * Main app, sets up database, and then it keeps an active loop.
  */
 async fn app() {
@@ -95,11 +103,11 @@ async fn app() {
                 process::exit(1);
             }
             interval_timeout = res.unwrap();
-        },
+        }
         Err(_e) => {
             warn!("$FETCH_INTERVAL not set, using default of 2m");
             interval_timeout = 120000;
-        },
+        }
     }
 
     let mut interval = time::interval(Duration::from_millis(interval_timeout));

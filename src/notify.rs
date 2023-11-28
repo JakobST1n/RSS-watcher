@@ -1,14 +1,19 @@
 use crate::database::FeedConf;
 use crate::rss_utils;
 
-use log::{info, error};
+use chrono::prelude::{DateTime, Utc};
 use feed_rs::model::Feed;
-use chrono::prelude::{Utc,DateTime};
+use log::{error, info};
 
 /**
  * Push feed entry to gotify
  */
-async fn gotify(title: String, message: String, link: Option<String>, feed_conf: &FeedConf) -> Result<(), reqwest::Error>  {
+async fn gotify(
+    title: String,
+    message: String,
+    link: Option<String>,
+    feed_conf: &FeedConf,
+) -> Result<(), reqwest::Error> {
     let uri = format!("{}/message", &feed_conf.push_url);
 
     // Build json string that will be sent as payload to gotify
@@ -17,7 +22,7 @@ async fn gotify(title: String, message: String, link: Option<String>, feed_conf:
     req.push_str(format!("\"title\":\"{}\"", title).as_str());
     req.push_str(format!(",\"message\":\"{}\"", message).as_str());
     req.push_str(",\"priority\":1");
-    
+
     req.push_str(",\"extras\": {");
     req.push_str("\"client::display\": { \"contentType\": \"text/markdown\" }");
     if link.is_some() {
@@ -29,12 +34,13 @@ async fn gotify(title: String, message: String, link: Option<String>, feed_conf:
 
     // Send request to gotify
     let client = reqwest::Client::new();
-    let res = client.post(uri)
-                    .query(&[("token",&feed_conf.push_token)])
-                    .body(req.to_owned())
-                    .header("Content-Type", "application/json")
-                    .send()
-                    .await?;
+    let res = client
+        .post(uri)
+        .query(&[("token", &feed_conf.push_token)])
+        .body(req.to_owned())
+        .header("Content-Type", "application/json")
+        .send()
+        .await?;
     if res.status().is_success() {
         info!("Sent notification with title \"{}\"", title);
     } else {

@@ -1,23 +1,30 @@
 use crate::database::FeedConf;
 
+use chrono::prelude::{DateTime, Utc};
+use feed_rs::model;
+use feed_rs::parser;
+use html2md;
 use log::{debug, info};
 use std::error::Error;
-use feed_rs::parser;
-use feed_rs::model;
-use chrono::prelude::{Utc,DateTime};
-use html2md;
 extern crate mime;
 
 /**
  * Extract text field from Option
  */
 fn extract_text(text: &Option<model::Text>, field: &str) -> String {
-    if text.is_none() { return String::from(format!("Field {:#?} was not in feed", field)); }
+    if text.is_none() {
+        return String::from(format!("Field {:#?} was not in feed", field));
+    }
     let field = text.as_ref().unwrap();
     match (field.content_type.type_(), field.content_type.subtype()) {
         (mime::TEXT, mime::HTML) => return html2md::parse_html(field.content.as_ref()),
         (mime::TEXT, mime::PLAIN) => return field.content.to_owned(),
-        _ => return String::from(format!("Unknown field content type {:#?}", field.content_type)),
+        _ => {
+            return String::from(format!(
+                "Unknown field content type {:#?}",
+                field.content_type
+            ))
+        }
     }
 }
 
@@ -25,7 +32,9 @@ fn extract_text(text: &Option<model::Text>, field: &str) -> String {
  * Extract string field from Option
  */
 fn extract_string(text: &Option<String>, field: &str) -> String {
-    if text.is_none() { return String::from(format!("Field {:#?} was not in feed", field)); }
+    if text.is_none() {
+        return String::from(format!("Field {:#?} was not in feed", field));
+    }
     return text.as_ref().unwrap().to_owned();
 }
 
@@ -33,7 +42,9 @@ fn extract_string(text: &Option<String>, field: &str) -> String {
  * Extract string field from Option
  */
 fn extract_datetime(date: &Option<DateTime<Utc>>, field: &str) -> String {
-    if date.is_none() { return String::from(format!("Field {:#?} was not in feed", field)); }
+    if date.is_none() {
+        return String::from(format!("Field {:#?} was not in feed", field));
+    }
     return date.unwrap().to_rfc2822().replace("+0000", "UTC");
 }
 
@@ -45,25 +56,28 @@ fn person_vec_to_md(person_vec: &Vec<model::Person>) -> String {
 
     for (i, person) in person_vec.iter().enumerate() {
         if person.uri.is_some() && person.email.is_some() {
-            md_str.push_str(format!("[{}]({}) - [homepage]({})", 
-                                    person.name, 
-                                    person.email.as_ref().unwrap(), 
-                                    person.uri.as_ref().unwrap()
-                                    ).as_str());
+            md_str.push_str(
+                format!(
+                    "[{}]({}) - [homepage]({})",
+                    person.name,
+                    person.email.as_ref().unwrap(),
+                    person.uri.as_ref().unwrap()
+                )
+                .as_str(),
+            );
         } else if person.uri.is_some() {
-            md_str.push_str(format!("[{}]({})", 
-                                    person.name, 
-                                    person.uri.as_ref().unwrap(), 
-                                    ).as_str());
+            md_str
+                .push_str(format!("[{}]({})", person.name, person.uri.as_ref().unwrap(),).as_str());
         } else if person.email.is_some() {
-            md_str.push_str(format!("[{}]({})", 
-                                    person.name, 
-                                    person.email.as_ref().unwrap(), 
-                                    ).as_str());
+            md_str.push_str(
+                format!("[{}]({})", person.name, person.email.as_ref().unwrap(),).as_str(),
+            );
         } else {
             md_str.push_str(&person.name);
         }
-        if i < (person_vec.len() - 1) { md_str.push_str(", "); }
+        if i < (person_vec.len() - 1) {
+            md_str.push_str(", ");
+        }
     }
     return md_str;
 }
@@ -76,19 +90,16 @@ fn link_vec_to_md(link_vec: &Vec<model::Link>) -> String {
 
     for (i, link) in link_vec.iter().enumerate() {
         if link.title.is_some() {
-            md_str.push_str(format!("[{}]({})", 
-                                    &link.title.as_ref().unwrap(), 
-                                    &link.href).as_str());
+            md_str
+                .push_str(format!("[{}]({})", &link.title.as_ref().unwrap(), &link.href).as_str());
         } else if link.rel.is_some() {
-            md_str.push_str(format!("[{}]({})", 
-                                    &link.rel.as_ref().unwrap(), 
-                                    &link.href).as_str());
+            md_str.push_str(format!("[{}]({})", &link.rel.as_ref().unwrap(), &link.href).as_str());
         } else {
-            md_str.push_str(format!("[{}]({})",
-                                    &link.href, 
-                                    &link.href).as_str());
+            md_str.push_str(format!("[{}]({})", &link.href, &link.href).as_str());
         }
-        if i < (link_vec.len() - 1) { md_str.push_str(", "); }
+        if i < (link_vec.len() - 1) {
+            md_str.push_str(", ");
+        }
     }
     return md_str;
 }
@@ -105,7 +116,9 @@ fn category_vec_to_md(category_vec: &Vec<model::Category>) -> String {
         } else {
             md_str.push_str(&category.term);
         }
-        if i < (category_vec.len() - 1) { md_str.push_str(", "); }
+        if i < (category_vec.len() - 1) {
+            md_str.push_str(", ");
+        }
     }
     return md_str;
 }
@@ -139,7 +152,7 @@ fn fill_template_field(field: &str, entry: &model::Entry, feed: &model::Feed) ->
         "entry.published" => return extract_datetime(&entry.published, field).to_owned(),
         "entry.source" => return extract_string(&entry.source, field).to_owned(),
         "entry.rights" => return extract_text(&entry.rights, field).to_owned(),
-        _ => return String::from(format!("Unknown field {:#?}", field))
+        _ => return String::from(format!("Unknown field {:#?}", field)),
     }
 }
 
@@ -148,12 +161,13 @@ fn fill_template_field(field: &str, entry: &model::Entry, feed: &model::Feed) ->
  * special HTML characters.
  */
 pub fn escape(input: String) -> String {
-    return input.replace("\\","\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("&", "$amp;");
+    return input
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+        .replace("\n", "\\n")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("&", "$amp;");
 }
 
 /**
@@ -173,9 +187,7 @@ pub fn fill_template(template_str: &str, entry: &model::Entry, feed: &model::Fee
             if c == '}' {
                 r_bracket_n += 1;
                 if r_bracket_n > 1 {
-                    filled_str.push_str(fill_template_field(&field, 
-                                                            &entry, 
-                                                            &feed).as_str());
+                    filled_str.push_str(fill_template_field(&field, &entry, &feed).as_str());
                     field = "".to_owned();
                     r_bracket_n = 0;
                     l_bracket_n = 0;
@@ -185,7 +197,9 @@ pub fn fill_template(template_str: &str, entry: &model::Entry, feed: &model::Fee
             }
         } else if c == '{' {
             l_bracket_n += 1;
-            if l_bracket_n > 1 { field = "".to_owned(); }
+            if l_bracket_n > 1 {
+                field = "".to_owned();
+            }
         } else {
             l_bracket_n = 0;
             filled_str.push(c);
@@ -196,18 +210,25 @@ pub fn fill_template(template_str: &str, entry: &model::Entry, feed: &model::Fee
 
 /**
  * Function takes a FeedConf struct, and makes a get request to fetch
- * the feed. It then uses feed_rs to parse that feed and returns that 
+ * the feed. It then uses feed_rs to parse that feed and returns that
  * parsed feed.
  */
-pub async fn fetch_feed(feed_conf: &FeedConf, last_fetch_time: DateTime<Utc>) -> Result<Option<model::Feed>, Box<dyn Error>> {
+pub async fn fetch_feed(
+    feed_conf: &FeedConf,
+    last_fetch_time: DateTime<Utc>,
+) -> Result<Option<model::Feed>, Box<dyn Error>> {
     info!("Fetching feed \"{}\"", &feed_conf.url);
     let client = reqwest::Client::new();
     let last_fetch_rfc2822 = last_fetch_time.to_rfc2822().replace("+0000", "GMT");
-    debug!("Using header \"If-Modified-Since {:?}\"", &last_fetch_rfc2822);
-    let resp = client.get(&feed_conf.url)
-                     .header("If-Modified-Since", &last_fetch_rfc2822)
-                     .send()
-                     .await?;
+    debug!(
+        "Using header \"If-Modified-Since {:?}\"",
+        &last_fetch_rfc2822
+    );
+    let resp = client
+        .get(&feed_conf.url)
+        .header("If-Modified-Since", &last_fetch_rfc2822)
+        .send()
+        .await?;
     if resp.status() == 304 {
         info!("No changes since last fetch at {}", &last_fetch_rfc2822);
         Ok(None)
